@@ -95,9 +95,9 @@ def getChangeLogFile() {
 
 liquibase {
     println ">>>> Liquibase configuration: ${releaseVersion} \n":
-        "changelogFile changelogs/release-20250130-dev-changelog.yml \n" + 
+        "changelogFile changelogs/${releaseVersion}-${environment}-changelog.yml \n" + 
         "driver com.databricks.jdbc.Driver \n" +
-        "url jdbc:databricks://${dbr_host}:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/cf6584d703f9d986;ConnCatalog=dev;" +
+        "url jdbc:databricks://${dbr_host}:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/cf6584d703f9d986;ConnCatalog=${environment};" +
         "username token" +
         "password ${dbPassword}" +
         "defaultSchemaName platform" +
@@ -106,14 +106,12 @@ liquibase {
 
     activities {
         main {
-            changelogFile "changelogs/release-20250130-dev-changelog.yml"
-            driver 'com.databricks.jdbc.Driver'
-            url "jdbc:databricks://${dbr_host}:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/cf6584d703f9d986;ConnCatalog=dev;"
+            changelogFile "changelogs/${releaseVersion}-${environment}-changelog.yml"
+            url "jdbc:databricks://${dbr_host}:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/cf6584d703f9d986;ConnCatalog=${environment};"
             username "token"
-            password ${dbPassword}
+            password "${dbPassword}"
             defaultSchemaName "platform"
             defaultCatalogName "${environment}"
-            logLevel "DEBUG"
         }
     }
     runList = 'main'

@@ -3,10 +3,12 @@ dev:
   - JIRA-001
   - JIRA-002
   demo_schema2:
-  - JIRA-003  
+  - JIRA-003
+  - JIRA-004
 uat:
   demo_schema1:
   - JIRA-001
+  - JIRA-002
 prod:
   demo_schema1:
   - JIRA-003

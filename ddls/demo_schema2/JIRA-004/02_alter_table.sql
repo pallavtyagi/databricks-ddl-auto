@@ -1,0 +1,2 @@
+ALTER TABLE demo1 
+ADD COLUMN comments STRING;

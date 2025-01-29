@@ -1,0 +1,127 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.yaml:snakeyaml:2.0'
+    }
+}
+
+plugins {
+    id 'org.liquibase.gradle' version '2.2.0'
+}
+
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    compile
+    implementation.extendsFrom compile
+    runtimeOnly
+    liquibaseRuntime.extendsFrom runtimeOnly
+}
+
+
+
+dependencies {
+    compile 'org.yaml:snakeyaml:2.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2'
+    
+    liquibaseRuntime 'org.liquibase:liquibase-core:4.20.0'
+    liquibaseRuntime 'org.yaml:snakeyaml:2.0'
+    liquibaseRuntime 'com.databricks:databricks-jdbc:2.6.36'
+    liquibaseRuntime 'org.liquibase.ext:liquibase-databricks:1.4.1'
+}
+
+
+def releaseVersion = project.hasProperty('release_version') ? project.property('release_version') : 'release-20250130'
+def environment = project.hasProperty('environment') ? project.property('environment') : 'dev'
+def dbPassword = project.hasProperty('password') ? project.property('password') : 'default_password'
+import org.yaml.snakeyaml.Yaml
+
+
+task generate_change_log() {
+    group = 'Liquibase'
+    description = 'Generates a changelog file based on the release version and environment configuration'
+
+    doLast {
+        println "==================================================================="
+        println "Generating changelog for version: ${releaseVersion}"
+        println "Environment: ${environment}"
+        println "==================================================================="
+
+        def yamlFile = file("deployments/${releaseVersion}.yaml")
+        println "Loading configuration from: ${yamlFile.absolutePath}"
+        def yaml = new org.yaml.snakeyaml.Yaml()
+        def config = yaml.load(yamlFile.text)
+
+        def envConfig = config[environment]
+        def changelogContent = new StringBuilder()
+        changelogContent.append("databaseChangeLog:\n")
+
+        envConfig.each { schema, jiras ->
+            println "\nProcessing schema: ${schema}"
+            jiras.each { jira ->
+                def ddlDir = new File("ddls/${schema}/${jira}/")
+                if (ddlDir.exists()) {
+                    println "Including JIRA folder: ${ddlDir.name}"
+                    changelogContent.append("  - includeAll:\n")
+                    changelogContent.append("      path: ${ddlDir.absolutePath}\n")
+                } else {
+                    println "No changelog files found in ${schema}/${jira}/"
+                }
+            }
+        }
+
+        def changelogDir = file("changelogs")
+        if (!changelogDir.exists()) {
+            changelogDir.mkdirs()
+        }
+
+        def changelogFile = file("changelogs/${releaseVersion}-${environment}-changelog.yaml")
+        changelogFile.text = changelogContent.toString()
+        println "\nChangelog generated at: ${changelogFile.absolutePath}"
+    }
+}
+
+task deploy_ddls() {
+    group = 'Liquibase'
+    description = 'Deploys database changes using Liquibase based on environment configuration'
+    
+    dependsOn generate_change_log
+
+    doFirst {
+        println "Preparing for database deployment..."
+    }
+    
+    doLast {
+        println "==================================================================="
+        println "Starting database deployment for version: ${releaseVersion}"
+        println "Environment: ${environment}"
+        println "==================================================================="
+
+        def changelogFile = file("changelogs/${releaseVersion}-${environment}-changelog.yaml")
+        if (!changelogFile.exists()) {
+            throw new GradleException("Changelog file not found: ${changelogFile.absolutePath}")
+        }
+
+        println "Using changelog file: ${changelogFile.absolutePath}"
+        
+        liquibase {
+            activities {
+                main {
+                    changeLogFile changelogFile.absolutePath
+                    url "jdbc:databricks://{SQL_HOST}:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/cf6584d703f9d986;ConnCatalog=default;"
+                    username "token"
+                    password dbPassword
+                    logLevel "DEBUG"
+                }
+            }
+            runList = 'main'
+        }
+
+        println "\nDeployment completed successfully"
+    }
+}

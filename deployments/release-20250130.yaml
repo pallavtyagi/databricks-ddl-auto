@@ -1,0 +1,11 @@
+dev:
+  demo_schema1:
+  - JIRA-001
+  demo_schema2:
+  - JIRA-003  
+uat:
+  demo_schema1:
+  - JIRA-001
+prod:
+  demo_schema1:
+  - JIRA-003
